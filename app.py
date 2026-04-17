@@ -10,16 +10,6 @@ except ImportError:
 
 from core.db import get_db_status
 
-# Import modules
-from ui.dashboard import show_dashboard
-from ui.expenses import show_expenses
-from ui.budget import show_budget
-from ui.investments import show_investments
-from ui.goals import show_goals
-from ui.chat_ui import show_chat
-from ui.reports import show_reports
-from ui.login import show_login_page
-
 # Initialize session state
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
@@ -61,6 +51,17 @@ if not db_status["ok"]:
         "You can also set `MONGODB_DB_NAME` if you do not want to use the default `finsight` database."
     )
     st.stop()
+
+# Import modules after the database health check succeeds so Streamlit can
+# render a controlled error state instead of failing during module import.
+from ui.dashboard import show_dashboard
+from ui.expenses import show_expenses
+from ui.budget import show_budget
+from ui.investments import show_investments
+from ui.goals import show_goals
+from ui.chat_ui import show_chat
+from ui.reports import show_reports
+from ui.login import show_login_page
 
 # Check if user is logged in
 if not st.session_state.logged_in:
