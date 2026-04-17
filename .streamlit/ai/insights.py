@@ -100,19 +100,16 @@ except ValueError as e:
     insights = None
 
 def get_monthly_insight(year: int, month: int) -> str:
-    """Get monthly insight."""
     if insights:
         return insights.generate_monthly_summary(year, month)
-    return "Insights not available"
+    return "Insights service is not available."
 
 def get_cash_flow_forecast(months: int = 3) -> str:
-    """Get cash flow forecast."""
     if insights:
         return insights.forecast_cash_flow(months)
-    return "Forecast not available"
+    return "Forecast service is not available."
 
 def get_budget_suggestion() -> str:
-    """Get budget suggestion."""
     if insights:
         return insights.suggest_budget()
-    return "Budget suggestion not available"
+    return "Budget suggestion service is not available."

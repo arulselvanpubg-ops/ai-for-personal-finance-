@@ -98,3 +98,5 @@ def send_chat_message(user_message: str, history: List[Dict] = None) -> str:
     """Convenience function for chat."""
     if chatbot:
         return chatbot.chat(user_message, history)
+    else:
+        return "Chat service is not available. Please check your NVIDIA API key."
