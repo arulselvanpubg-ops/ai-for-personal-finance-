@@ -39,24 +39,33 @@ def get_mongo_client(uri):
             "MongoDB is not configured. Set `MONGODB_URI` in Streamlit secrets or environment variables."
         )
 
-    base_kwargs = {
-        "serverSelectionTimeoutMS": 5000,
-    }
+    base_kwargs = {"serverSelectionTimeoutMS": 5000}
+    attempts = [base_kwargs]
 
-    try:
-        # Let PyMongo negotiate TLS using the URI defaults first.
-        client = MongoClient(uri, **base_kwargs)
-        client.admin.command("ping")
-        return client
-    except Exception as default_exc:
-        if CA_BUNDLE:
-            print("Default MongoDB connection failed, retrying with certifi CA bundle.")
-            ca_kwargs = base_kwargs.copy()
-            ca_kwargs["tlsCAFile"] = CA_BUNDLE
-            client = MongoClient(uri, **ca_kwargs)
+    if CA_BUNDLE:
+        attempts.append({**base_kwargs, "tlsCAFile": CA_BUNDLE})
+
+    # Narrow fallback for environments that fail during certificate revocation checks.
+    attempts.append({**base_kwargs, "tlsDisableOCSPEndpointCheck": True})
+    if CA_BUNDLE:
+        attempts.append(
+            {
+                **base_kwargs,
+                "tlsCAFile": CA_BUNDLE,
+                "tlsDisableOCSPEndpointCheck": True,
+            }
+        )
+
+    last_exc = None
+    for attempt_kwargs in attempts:
+        try:
+            client = MongoClient(uri, **attempt_kwargs)
             client.admin.command("ping")
             return client
-        raise default_exc
+        except Exception as exc:
+            last_exc = exc
+
+    raise last_exc
 
 
 client = None
