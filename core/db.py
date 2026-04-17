@@ -1,169 +1,242 @@
-import os
 from datetime import datetime
+
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure
+from pymongo.errors import ConnectionFailure, PyMongoError
 
-# MongoDB connection setup
-MONGODB_URI = os.getenv('MONGODB_URI')
-MONGODB_DB_NAME = os.getenv('MONGODB_DB_NAME', 'finsight')
+from utils.helpers import get_env
 
-if not MONGODB_URI:
-    raise ValueError("MONGODB_URI not set in .env file")
+_client = None
+_db = None
+_connection_error = None
 
-try:
-    client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-    # Test the connection
-    client.admin.command('ismaster')
-    db = client[MONGODB_DB_NAME]
-    print(f"✓ Connected to MongoDB: {MONGODB_DB_NAME}")
-except ConnectionFailure as e:
-    print(f"✗ Failed to connect to MongoDB: {e}")
-    raise
 
-# Collection definitions
-transactions_collection = db['transactions']
-categories_collection = db['categories']
-budgets_collection = db['budgets']
-goals_collection = db['goals']
-investments_collection = db['investments']
-chat_history_collection = db['chat_history']
+def _get_mongo_config():
+    """Read MongoDB config from Streamlit secrets or environment variables."""
+    return {
+        "uri": get_env("MONGODB_URI"),
+        "db_name": get_env("MONGODB_DB_NAME", "finsight"),
+    }
 
-# Create indexes for better performance
-transactions_collection.create_index('date')
-transactions_collection.create_index('category')
-budgets_collection.create_index('month')
-chat_history_collection.create_index('timestamp')
 
-# Helper classes for ORM-like interface
+def is_db_configured() -> bool:
+    """Return True when the MongoDB URI is available."""
+    config = _get_mongo_config()
+    return bool(config["uri"])
+
+
+def get_db_status() -> dict:
+    """Provide a user-friendly status for UI checks."""
+    config = _get_mongo_config()
+
+    if not config["uri"]:
+        return {
+            "ok": False,
+            "message": (
+                "MongoDB is not configured. Set `MONGODB_URI` in Streamlit Secrets "
+                "or in your local `.env` file."
+            ),
+        }
+
+    if _connection_error:
+        return {
+            "ok": False,
+            "message": f"MongoDB connection failed: {_connection_error}",
+        }
+
+    return {"ok": True, "message": ""}
+
+
+def get_db():
+    """Return a connected MongoDB database instance."""
+    global _client, _db, _connection_error
+
+    if _db is not None:
+        return _db
+
+    config = _get_mongo_config()
+    if not config["uri"]:
+        raise RuntimeError(
+            "MongoDB is not configured. Set MONGODB_URI in Streamlit Secrets or .env."
+        )
+
+    try:
+        _client = MongoClient(config["uri"], serverSelectionTimeoutMS=5000)
+        _client.admin.command("ping")
+        _db = _client[config["db_name"]]
+        _connection_error = None
+        return _db
+    except ConnectionFailure as exc:
+        _connection_error = exc
+        raise RuntimeError(f"Failed to connect to MongoDB: {exc}") from exc
+
+
+def get_collection(name: str):
+    """Return a collection from the configured database."""
+    return get_db()[name]
+
+
+def ensure_indexes():
+    """Create indexes after the first successful connection."""
+    try:
+        get_collection("transactions").create_index("date")
+        get_collection("transactions").create_index("category")
+        get_collection("budgets").create_index("month")
+        get_collection("chat_history").create_index("timestamp")
+        get_collection("users").create_index("email", unique=True)
+    except PyMongoError:
+        # Index creation should not block the app from starting.
+        pass
+
+
 class Transaction:
-    """MongoDB Transaction document helper"""
+    """MongoDB Transaction document helper."""
+
     @staticmethod
     def create(date, amount, description, category, notes=None):
         doc = {
-            'date': date if isinstance(date, datetime) else datetime.fromisoformat(str(date)),
-            'amount': float(amount),
-            'description': str(description),
-            'category': str(category),
-            'notes': notes,
-            'created_at': datetime.utcnow()
+            "date": date if isinstance(date, datetime) else datetime.fromisoformat(str(date)),
+            "amount": float(amount),
+            "description": str(description),
+            "category": str(category),
+            "notes": notes,
+            "created_at": datetime.utcnow(),
         }
-        result = transactions_collection.insert_one(doc)
+        result = get_collection("transactions").insert_one(doc)
         return result.inserted_id
-    
+
     @staticmethod
     def find_by_date_range(start_date, end_date):
-        return list(transactions_collection.find({
-            'date': {'$gte': start_date, '$lt': end_date}
-        }).sort('date', -1))
-    
-    @staticmethod
-    def find_all():
-        return list(transactions_collection.find().sort('date', -1))
-
-class Category:
-    """MongoDB Category document helper"""
-    @staticmethod
-    def create(name, budget=0.0):
-        doc = {'name': str(name), 'budget': float(budget)}
-        result = categories_collection.insert_one(doc)
-        return result.inserted_id
-    
-    @staticmethod
-    def find_all():
-        return list(categories_collection.find())
-    
-    @staticmethod
-    def update_budget(name, budget):
-        categories_collection.update_one(
-            {'name': name},
-            {'$set': {'budget': float(budget)}}
+        return list(
+            get_collection("transactions")
+            .find({"date": {"$gte": start_date, "$lt": end_date}})
+            .sort("date", -1)
         )
 
+    @staticmethod
+    def find_all():
+        return list(get_collection("transactions").find().sort("date", -1))
+
+
+class Category:
+    """MongoDB Category document helper."""
+
+    @staticmethod
+    def create(name, budget=0.0):
+        doc = {"name": str(name), "budget": float(budget)}
+        result = get_collection("categories").insert_one(doc)
+        return result.inserted_id
+
+    @staticmethod
+    def find_all():
+        return list(get_collection("categories").find())
+
+    @staticmethod
+    def update_budget(name, budget):
+        get_collection("categories").update_one(
+            {"name": name},
+            {"$set": {"budget": float(budget)}},
+        )
+
+
 class Budget:
-    """MongoDB Budget document helper"""
+    """MongoDB Budget document helper."""
+
     @staticmethod
     def create(category_id, month, amount):
         doc = {
-            'category_id': category_id,
-            'month': str(month),
-            'amount': float(amount)
+            "category_id": category_id,
+            "month": str(month),
+            "amount": float(amount),
         }
-        result = budgets_collection.insert_one(doc)
+        result = get_collection("budgets").insert_one(doc)
         return result.inserted_id
-    
+
     @staticmethod
     def find_by_month(month):
-        return list(budgets_collection.find({'month': month}))
+        return list(get_collection("budgets").find({"month": month}))
+
 
 class Goal:
-    """MongoDB Goal document helper"""
+    """MongoDB Goal document helper."""
+
     @staticmethod
     def create(name, target_amount, target_date, current_amount=0.0):
         doc = {
-            'name': str(name),
-            'target_amount': float(target_amount),
-            'current_amount': float(current_amount),
-            'target_date': target_date if isinstance(target_date, datetime) else datetime.fromisoformat(str(target_date)),
-            'created_at': datetime.utcnow()
+            "name": str(name),
+            "target_amount": float(target_amount),
+            "current_amount": float(current_amount),
+            "target_date": (
+                target_date
+                if isinstance(target_date, datetime)
+                else datetime.fromisoformat(str(target_date))
+            ),
+            "created_at": datetime.utcnow(),
         }
-        result = goals_collection.insert_one(doc)
+        result = get_collection("goals").insert_one(doc)
         return result.inserted_id
-    
+
     @staticmethod
     def find_all():
-        return list(goals_collection.find())
+        return list(get_collection("goals").find())
+
 
 class Investment:
-    """MongoDB Investment document helper"""
+    """MongoDB Investment document helper."""
+
     @staticmethod
     def create(ticker, quantity, purchase_price, purchase_date):
         doc = {
-            'ticker': str(ticker),
-            'quantity': float(quantity),
-            'purchase_price': float(purchase_price),
-            'purchase_date': purchase_date if isinstance(purchase_date, datetime) else datetime.fromisoformat(str(purchase_date))
+            "ticker": str(ticker),
+            "quantity": float(quantity),
+            "purchase_price": float(purchase_price),
+            "purchase_date": (
+                purchase_date
+                if isinstance(purchase_date, datetime)
+                else datetime.fromisoformat(str(purchase_date))
+            ),
         }
-        result = investments_collection.insert_one(doc)
+        result = get_collection("investments").insert_one(doc)
         return result.inserted_id
-    
+
     @staticmethod
     def find_all():
-        return list(investments_collection.find())
+        return list(get_collection("investments").find())
+
 
 class ChatHistory:
-    """MongoDB ChatHistory document helper"""
+    """MongoDB ChatHistory document helper."""
+
     @staticmethod
     def create(user_message, ai_response):
         doc = {
-            'user_message': str(user_message),
-            'ai_response': str(ai_response),
-            'timestamp': datetime.utcnow()
+            "user_message": str(user_message),
+            "ai_response": str(ai_response),
+            "timestamp": datetime.utcnow(),
         }
-        result = chat_history_collection.insert_one(doc)
+        result = get_collection("chat_history").insert_one(doc)
         return result.inserted_id
-    
+
     @staticmethod
     def find_recent(limit=10):
-        return list(chat_history_collection.find().sort('timestamp', -1).limit(limit))
+        return list(get_collection("chat_history").find().sort("timestamp", -1).limit(limit))
 
-# Simplified database access
+
 class DB:
     @staticmethod
     def get_transactions():
-        return transactions_collection
-    
+        return get_collection("transactions")
+
     @staticmethod
     def get_categories():
-        return categories_collection
-    
+        return get_collection("categories")
+
     @staticmethod
     def get_budgets():
-        return budgets_collection
-    
+        return get_collection("budgets")
+
     @staticmethod
     def get_chat_history():
-        return chat_history_collection
+        return get_collection("chat_history")
 
-def get_db():
-    """Return database instance for use in other modules"""
-    return db
+
+ensure_indexes()

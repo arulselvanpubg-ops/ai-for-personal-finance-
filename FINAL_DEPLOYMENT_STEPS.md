@@ -46,7 +46,7 @@ After deployment:
 2. Copy and paste your secrets:
 
 ```
-MONGODB_URI = "mongodb+srv://arulselvanpubg_db_user:9a4fU5e0BhIi2VvX@cluster0.p9w5o2n.mongodb.net/"
+MONGODB_URI = "your-mongodb-connection-string"
 MONGODB_DB_NAME = "finsight"
 GOOGLE_API_KEY = "YOUR_ACTUAL_GOOGLE_API_KEY"
 NVIDIA_API_KEY = "YOUR_ACTUAL_NVIDIA_API_KEY"

@@ -18,6 +18,7 @@ nosetests.xml
 coverage.xml
 *.cover
 *.log
+output.txt
 .streamlit/secrets.toml
 .streamlit/secrets.local.toml
 .git

@@ -1,8 +1,9 @@
 import os
 from huggingface_hub import InferenceClient
+from utils.helpers import get_env
 
-HF_API_KEY = os.getenv('HF_API_KEY')
-HF_CATEGORIZER_MODEL = os.getenv('HF_CATEGORIZER_MODEL', 'facebook/bart-large-mnli')
+HF_API_KEY = get_env('HF_API_KEY')
+HF_CATEGORIZER_MODEL = get_env('HF_CATEGORIZER_MODEL', 'facebook/bart-large-mnli')
 
 # Predefined categories
 CATEGORIES = [

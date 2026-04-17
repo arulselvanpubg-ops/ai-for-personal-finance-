@@ -1,4 +1,22 @@
 # Helper functions
+import os
+
+def get_env(key, default=None):
+    """Get environment variable from Streamlit secrets or os.getenv()
+    
+    Tries Streamlit secrets first (for Cloud deployment),
+    then falls back to os.getenv() (for local development).
+    """
+    try:
+        import streamlit as st
+        value = st.secrets.get(key)
+        if value:
+            return value
+    except (ImportError, AttributeError):
+        pass
+    
+    return os.getenv(key, default)
+
 def format_currency(amount):
     """Format amount as currency."""
     return f"${amount:,.2f}"

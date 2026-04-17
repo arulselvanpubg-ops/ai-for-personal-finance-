@@ -8,6 +8,8 @@ try:
 except ImportError:
     pass  # dotenv not available on Streamlit Cloud
 
+from core.db import get_db_status
+
 # Import modules
 from ui.dashboard import show_dashboard
 from ui.expenses import show_expenses
@@ -50,6 +52,15 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
+
+db_status = get_db_status()
+if not db_status["ok"]:
+    st.error(db_status["message"])
+    st.info(
+        "On Streamlit Cloud, open your app settings and add `MONGODB_URI` under Secrets. "
+        "You can also set `MONGODB_DB_NAME` if you do not want to use the default `finsight` database."
+    )
+    st.stop()
 
 # Check if user is logged in
 if not st.session_state.logged_in:

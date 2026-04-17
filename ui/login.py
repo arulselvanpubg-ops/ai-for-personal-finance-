@@ -3,8 +3,6 @@ from core.auth import User
 
 def show_login_page():
     """Display login/register page."""
-    st.set_page_config(page_title="FinSight AI - Login", layout="centered")
-    
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:

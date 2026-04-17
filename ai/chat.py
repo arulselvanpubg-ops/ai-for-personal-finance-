@@ -3,10 +3,11 @@ from openai import OpenAI
 from core.db import ChatHistory
 from core.finance import get_monthly_summary
 from typing import List, Dict
+from utils.helpers import get_env
 
-NVIDIA_API_KEY = os.getenv('NVIDIA_API_KEY')
-NVIDIA_BASE_URL = os.getenv('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1')
-NVIDIA_MODEL = os.getenv('NVIDIA_MODEL', 'meta/llama-3.1-70b-instruct')
+NVIDIA_API_KEY = get_env('NVIDIA_API_KEY')
+NVIDIA_BASE_URL = get_env('NVIDIA_BASE_URL', 'https://integrate.api.nvidia.com/v1')
+NVIDIA_MODEL = get_env('NVIDIA_MODEL', 'meta/llama-3.1-70b-instruct')
 
 class FinSightChat:
     def __init__(self):
@@ -98,3 +99,4 @@ def send_chat_message(user_message: str, history: List[Dict] = None) -> str:
     """Convenience function for chat."""
     if chatbot:
         return chatbot.chat(user_message, history)
+    return "Chat is not available because `NVIDIA_API_KEY` is not configured."

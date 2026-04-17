@@ -1,10 +1,10 @@
-import os
 import google.generativeai as genai
 from core.finance import get_monthly_summary
 from datetime import datetime
+from utils.helpers import get_env
 
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash')
+GOOGLE_API_KEY = get_env('GOOGLE_API_KEY')
+GEMINI_MODEL = get_env('GEMINI_MODEL', 'gemini-1.5-flash')
 
 class FinancialInsights:
     def __init__(self):
@@ -103,16 +103,16 @@ def get_monthly_insight(year: int, month: int) -> str:
     """Get monthly insight."""
     if insights:
         return insights.generate_monthly_summary(year, month)
-    return "Insights not available"
+    return "Insights are not available because `GOOGLE_API_KEY` is not configured."
 
 def get_cash_flow_forecast(months: int = 3) -> str:
     """Get cash flow forecast."""
     if insights:
         return insights.forecast_cash_flow(months)
-    return "Forecast not available"
+    return "Forecast is not available because `GOOGLE_API_KEY` is not configured."
 
 def get_budget_suggestion() -> str:
     """Get budget suggestion."""
     if insights:
         return insights.suggest_budget()
-    return "Budget suggestion not available"
+    return "Budget suggestion is not available because `GOOGLE_API_KEY` is not configured."

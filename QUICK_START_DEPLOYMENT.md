@@ -31,7 +31,7 @@ git push -u origin main
 ### 4️⃣ Add Your Secrets
 After deployment, click ⋮ → Settings → Secrets, paste:
 ```
-MONGODB_URI = "mongodb+srv://arulselvanpubg_db_user:9a4fU5e0BhIi2VvX@cluster0.p9w5o2n.mongodb.net/"
+MONGODB_URI = "your-mongodb-connection-string"
 MONGODB_DB_NAME = "finsight"
 GOOGLE_API_KEY = "YOUR_KEY_HERE"
 NVIDIA_API_KEY = "YOUR_KEY_HERE"

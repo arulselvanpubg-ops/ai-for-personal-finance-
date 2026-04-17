@@ -1,5 +1,4 @@
 streamlit>=1.35
-customtkinter
 plotly
 matplotlib
 pandas
