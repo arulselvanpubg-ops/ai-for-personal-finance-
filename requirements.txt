@@ -3,6 +3,7 @@ plotly
 matplotlib
 pandas
 pymongo>=4.0
+certifi
 pdfplumber
 openpyxl
 reportlab
