@@ -2,10 +2,18 @@ from datetime import datetime
 
 import bcrypt
 
-from core.db import get_collection
+from core.db import get_backend_name, get_collection
 
 
 class User:
+    @staticmethod
+    def _normalize_user_id(user_id: str):
+        if get_backend_name() == "mongodb":
+            from bson.objectid import ObjectId
+
+            return ObjectId(user_id)
+        return str(user_id)
+
     @staticmethod
     def _users_collection():
         return get_collection("users")
@@ -74,18 +82,16 @@ class User:
     @staticmethod
     def find_by_id(user_id: str) -> dict:
         """Get user by ID."""
-        from bson.objectid import ObjectId
-
         try:
-            return User._users_collection().find_one({"_id": ObjectId(user_id)})
+            return User._users_collection().find_one(
+                {"_id": User._normalize_user_id(user_id)}
+            )
         except Exception:
             return None
 
     @staticmethod
     def update_profile(user_id: str, name: str = None, email: str = None) -> dict:
         """Update user profile."""
-        from bson.objectid import ObjectId
-
         update_data = {}
 
         if name:
@@ -95,7 +101,7 @@ class User:
 
         if update_data:
             User._users_collection().update_one(
-                {"_id": ObjectId(user_id)},
+                {"_id": User._normalize_user_id(user_id)},
                 {"$set": update_data},
             )
 

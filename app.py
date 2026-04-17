@@ -46,11 +46,11 @@ st.markdown("""
 db_status = get_db_status()
 if not db_status["ok"]:
     st.error(db_status["message"])
-    st.info(
-        "On Streamlit Cloud, open your app settings and add `MONGODB_URI` under Secrets. "
-        "You can also set `MONGODB_DB_NAME` if you do not want to use the default `finsight` database."
-    )
     st.stop()
+elif db_status.get("backend") == "sqlite":
+    st.info(
+        "The app is running with SQLite storage so deployment can continue without MongoDB."
+    )
 
 # Import modules after the database health check succeeds so Streamlit can
 # render a controlled error state instead of failing during module import.
