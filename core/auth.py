@@ -3,6 +3,14 @@ from datetime import datetime
 import bcrypt
 
 from core.db import get_backend_name, get_collection
+from utils.monitoring import log_event
+from utils.validators import (
+    normalize_email,
+    sanitize_input,
+    validate_email,
+    validate_name,
+    validate_password,
+)
 
 
 class User:
@@ -33,9 +41,20 @@ class User:
     @staticmethod
     def register(email: str, password: str, name: str) -> dict:
         """Register a new user."""
+        email = normalize_email(email)
+        name = sanitize_input(name, max_length=80)
+
+        if not validate_name(name):
+            return {"success": False, "error": "Please enter a valid name."}
+        if not validate_email(email):
+            return {"success": False, "error": "Please enter a valid email address."}
+        if not validate_password(password):
+            return {"success": False, "error": "Password must be at least 8 characters."}
+
         users_collection = User._users_collection()
         existing = users_collection.find_one({"email": email})
         if existing:
+            log_event("warning", "register_duplicate_email", email=email)
             return {"success": False, "error": "Email already registered"}
 
         hashed_password = User.hash_password(password)
@@ -48,18 +67,25 @@ class User:
         }
 
         result = users_collection.insert_one(user_doc)
+        log_event("info", "register_success", email=email, user_id=result.inserted_id)
         return {"success": True, "user_id": str(result.inserted_id)}
 
     @staticmethod
     def login(email: str, password: str) -> dict:
         """Authenticate user login."""
+        email = normalize_email(email)
+        if not validate_email(email):
+            return {"success": False, "error": "Please enter a valid email address."}
+
         users_collection = User._users_collection()
         user = users_collection.find_one({"email": email})
 
         if not user:
+            log_event("warning", "login_email_not_found", email=email)
             return {"success": False, "error": "Email not found"}
 
         if not User.verify_password(password, user["password"]):
+            log_event("warning", "login_invalid_password", email=email)
             return {"success": False, "error": "Invalid password"}
 
         users_collection.update_one(
@@ -67,6 +93,7 @@ class User:
             {"$set": {"last_login": datetime.now()}},
         )
 
+        log_event("info", "login_success", email=email, user_id=user["_id"])
         return {
             "success": True,
             "user_id": str(user["_id"]),

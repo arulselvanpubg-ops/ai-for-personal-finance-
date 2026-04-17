@@ -5,6 +5,8 @@ from datetime import datetime
 from typing import List, Dict
 import os
 
+from utils.validators import sanitize_input
+
 def parse_csv(file_path: str) -> List[Dict]:
     """Parse CSV file and return list of transaction dicts."""
     transactions = []
@@ -12,7 +14,7 @@ def parse_csv(file_path: str) -> List[Dict]:
         reader = csv.DictReader(f)
         for row in reader:
             # Normalize column names (case insensitive)
-            normalized = {k.lower(): v for k, v in row.items()}
+            normalized = {(k or '').lower(): (v or '').strip() for k, v in row.items()}
             
             # Try to extract date, amount, description
             date_str = normalized.get('date') or normalized.get('transaction date')
@@ -35,7 +37,7 @@ def parse_csv(file_path: str) -> List[Dict]:
                         transactions.append({
                             'date': date,
                             'amount': amount,
-                            'description': description or '',
+                            'description': sanitize_input(description or '', max_length=200),
                             'category': 'Uncategorized'
                         })
                 except (ValueError, AttributeError):
@@ -69,7 +71,7 @@ def parse_pdf(file_path: str) -> List[Dict]:
                             transactions.append({
                                 'date': date,
                                 'amount': amount,
-                                'description': description,
+                                'description': sanitize_input(description, max_length=200),
                                 'category': 'Uncategorized'
                             })
                         except (ValueError, IndexError):

@@ -1,69 +1,77 @@
 # FinSight AI
 
-Personal AI Finance Assistant built with Python and Streamlit.
+Personal AI finance assistant built with Python and Streamlit.
 
 ## Features
 
-- 🤖 AI-powered expense categorization
-- 💬 Conversational financial chatbot (FinSight Chat)
-- 📊 Interactive dashboard with financial insights
-- 🎯 Budget planning and tracking
-- 📈 Investment portfolio monitoring
-- 🎯 Savings goals management
-- 📄 PDF report generation
+- AI-powered expense categorization
+- Conversational financial chatbot
+- Interactive dashboard with financial insights
+- Budget planning and tracking
+- Investment and goals placeholders for future expansion
+- PDF and CSV transaction import support
 
 ## Technology Stack
 
-- **UI Framework**: Streamlit
-- **AI APIs**: NVIDIA NIM, Hugging Face, Google AI Studio
-- **Database**: MongoDB Atlas
-- **Data Processing**: Pandas
-- **Visualization**: Plotly
-- **Authentication**: Bcrypt password hashing
+- UI Framework: Streamlit
+- AI APIs: NVIDIA NIM, Hugging Face, Google AI Studio
+- Database: SQLite fallback with optional MongoDB Atlas
+- Data Processing: Pandas
+- Visualization: Plotly
+- Authentication: Bcrypt password hashing
 
 ## Setup
 
-1. Clone the repository
+1. Clone the repository.
 2. Install dependencies: `pip install -r requirements.txt`
-3. Set up environment variables in `.env` file
-4. Run the app: `streamlit run app.py`
+3. Copy `.env.example` to `.env`
+4. Add your rotated local secrets.
+5. Run the app: `streamlit run app.py`
 
 ## Environment Variables
 
-Create a `.env` file with your API keys:
+Recommended local starter configuration:
 
-```
+```env
+DB_BACKEND=sqlite
+SQLITE_DB_PATH=data/finsight.db
 NVIDIA_API_KEY=your_nvidia_key
 HF_API_KEY=your_huggingface_key
 GOOGLE_API_KEY=your_google_key
+SESSION_TIMEOUT_MINUTES=15
 ```
 
-## Usage
+## Production Notes
 
-- Start the dashboard to view your financial overview
-- Import transactions via CSV/PDF upload
-- Chat with FinSight AI for personalized advice
-- Set budgets and track progress
-- Generate monthly reports
+- Rotate any real secrets immediately if they were ever committed, pasted, or shared.
+- For the quickest reliable Streamlit Cloud deployment, use `DB_BACKEND=sqlite`.
+- SQLite is good for launch and demos, but it is not the best long-term persistent store on Streamlit Cloud.
+- The app logs operational events to standard output so you can inspect them in Streamlit Cloud logs.
+- When you want durable production data, move to a managed database.
 
-## 🚀 Deploy to Streamlit Cloud (Free Tier)
+## Deploy To Streamlit Cloud
 
-Quick deployment to cloud:
+1. Push the repo to GitHub.
+2. Create a new app in Streamlit Cloud using `app.py`.
+3. Add secrets from `.streamlit/secrets.toml.example`.
+4. Reboot the app after saving secrets.
 
-```bash
-# 1. Push to GitHub
-git push origin main
+For the most stable first deploy, use:
 
-# 2. Go to https://streamlit.io/cloud
-# 3. Click "New app" → Select this repo → Deploy
-
-# 4. Add secrets in app settings (⋮ → Secrets)
-# Copy from .streamlit/secrets.toml.example
+```toml
+DB_BACKEND = "sqlite"
+SQLITE_DB_PATH = "data/finsight.db"
+SESSION_TIMEOUT_MINUTES = 15
 ```
 
-Your app will be live at: `https://finsight-ai.streamlit.app`
+## Hardening Included
 
-For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)
+- SQLite fallback when MongoDB is unavailable
+- Session timeout handling
+- Safer login and registration validation
+- Cleaner import and chat error handling
+- Basic operational logging for app events
+- Safer example config files with placeholder secrets
 
 ## License
 

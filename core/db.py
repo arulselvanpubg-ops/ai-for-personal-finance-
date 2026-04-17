@@ -3,6 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from pymongo import MongoClient
+from utils.monitoring import log_event
 
 try:
     from dotenv import load_dotenv
@@ -11,7 +12,7 @@ try:
 except ImportError:
     pass
 
-try:
+try: 
     import streamlit as st
 
     MONGODB_URI = st.secrets.get("MONGODB_URI") or os.getenv("MONGODB_URI")
@@ -19,9 +20,13 @@ try:
         "MONGODB_DB_NAME",
         os.getenv("MONGODB_DB_NAME", "finsight"),
     )
+    SUPABASE_URL = st.secrets.get("SUPABASE_URL") or os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = st.secrets.get("SUPABASE_KEY") or os.getenv("SUPABASE_KEY")
 except Exception:
     MONGODB_URI = os.getenv("MONGODB_URI")
     MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "finsight")
+    SUPABASE_URL = os.getenv("SUPABASE_URL")
+    SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 SQLITE_DB_PATH = os.getenv("SQLITE_DB_PATH", os.path.join("data", "finsight.db"))
 
@@ -32,9 +37,17 @@ try:
 except ImportError:
     CA_BUNDLE = None
 
+try:
+    from supabase import create_client
+
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+
 _mongo_client = None
 _mongo_db = None
 _sqlite_conn = None
+_supabase_client = None
 _backend = None
 _backend_message = None
 _backend_error = None
@@ -234,40 +247,91 @@ def _ensure_sqlite():
     return _sqlite_conn
 
 
+def _ensure_supabase():
+    global _supabase_client
+
+    if _supabase_client is not None:
+        return _supabase_client
+
+    if not SUPABASE_AVAILABLE:
+        raise RuntimeError("supabase-py is not installed. Run: pip install supabase")
+
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_KEY environment variables are required")
+
+    try:
+        _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+        # Test the connection by querying the users table
+        _supabase_client.table("users").select("id").limit(1).execute()
+        return _supabase_client
+    except Exception as exc:
+        raise RuntimeError(f"Failed to connect to Supabase: {exc}")
+
+
 def _select_backend():
-    global _backend, _backend_error, _backend_message, _mongo_client, _mongo_db
+    global _backend, _backend_error, _backend_message, _mongo_client, _mongo_db, _supabase_client
 
     if _backend is not None:
         return _backend
 
     requested_backend = os.getenv("DB_BACKEND", "auto").lower()
 
+    if requested_backend == "supabase":
+        try:
+            _ensure_supabase()
+            _backend = "supabase"
+            _backend_message = f"Connected to Supabase database at `{SUPABASE_URL}`."
+            log_event("info", "db_backend_selected", backend=_backend, url=SUPABASE_URL)
+            return _backend
+        except Exception as exc:
+            _backend_error = str(exc)
+            raise
+
     if requested_backend == "sqlite":
         _ensure_sqlite()
         _backend = "sqlite"
         _backend_message = f"Using SQLite database at `{SQLITE_DB_PATH}`."
+        log_event("info", "db_backend_selected", backend=_backend, path=SQLITE_DB_PATH)
         return _backend
 
-    if MONGODB_URI:
+    if requested_backend == "mongodb" or (requested_backend == "auto" and MONGODB_URI):
+        if MONGODB_URI:
+            try:
+                _mongo_client = get_mongo_client(MONGODB_URI)
+                _mongo_db = _mongo_client[MONGODB_DB_NAME]
+                _backend = "mongodb"
+                _backend_message = f"Connected to MongoDB database `{MONGODB_DB_NAME}`."
+                log_event("info", "db_backend_selected", backend=_backend, database=MONGODB_DB_NAME)
+                return _backend
+            except Exception as exc:
+                _backend_error = str(exc)
+                if requested_backend == "mongodb":
+                    raise
+
+    if requested_backend == "auto" and SUPABASE_URL and SUPABASE_KEY and SUPABASE_AVAILABLE:
         try:
-            _mongo_client = get_mongo_client(MONGODB_URI)
-            _mongo_db = _mongo_client[MONGODB_DB_NAME]
-            _backend = "mongodb"
-            _backend_message = f"Connected to MongoDB database `{MONGODB_DB_NAME}`."
+            _ensure_supabase()
+            _backend = "supabase"
+            _backend_message = f"Connected to Supabase database at `{SUPABASE_URL}`."
+            log_event("info", "db_backend_selected", backend=_backend, url=SUPABASE_URL)
             return _backend
         except Exception as exc:
             _backend_error = str(exc)
-            if requested_backend == "mongodb":
-                raise
 
     _ensure_sqlite()
     _backend = "sqlite"
     if _backend_error:
-        _backend_message = (
-            f"Using SQLite fallback at `{SQLITE_DB_PATH}` because MongoDB is unavailable."
+        _backend_message = f"Using SQLite fallback at `{SQLITE_DB_PATH}` because the primary backend is unavailable."
+        log_event(
+            "warning",
+            "db_backend_fallback",
+            backend="sqlite",
+            path=SQLITE_DB_PATH,
+            reason=_backend_error,
         )
     else:
         _backend_message = f"Using SQLite database at `{SQLITE_DB_PATH}`."
+        log_event("info", "db_backend_selected", backend=_backend, path=SQLITE_DB_PATH)
     return _backend
 
 
@@ -298,6 +362,8 @@ def get_db():
     backend = _select_backend()
     if backend == "mongodb":
         return _mongo_db
+    elif backend == "supabase":
+        return _supabase_client
     return _ensure_sqlite()
 
 
@@ -350,10 +416,83 @@ class SQLiteCollection:
         return None
 
 
+class SupabaseCollection:
+    """Wrapper for Supabase table operations compatible with MongoDB-like interface."""
+
+    def __init__(self, table_name):
+        self.table_name = table_name
+
+    def create_index(self, *args, **kwargs):
+        """Supabase handles indexing automatically."""
+        return None
+
+    def insert_one(self, doc):
+        """Insert a document into Supabase table."""
+        global _supabase_client
+        if _supabase_client is None:
+            raise RuntimeError("Supabase client not initialized")
+
+        payload = {key: _serialize_value(value) for key, value in doc.items()}
+        response = _supabase_client.table(self.table_name).insert(payload).execute()
+
+        if response.data and len(response.data) > 0:
+            return InsertResult(response.data[0].get("id"))
+        raise RuntimeError("Failed to insert into Supabase")
+
+    def find(self, query=None):
+        """Find documents in Supabase table."""
+        global _supabase_client
+        if _supabase_client is None:
+            raise RuntimeError("Supabase client not initialized")
+
+        try:
+            response = _supabase_client.table(self.table_name).select("*").execute()
+            docs = response.data if response.data else []
+
+            # Convert to consistent format and apply filters
+            for doc in docs:
+                if "id" in doc and "_id" not in doc:
+                    doc["_id"] = str(doc["id"])
+
+            if query:
+                return [doc for doc in docs if _matches_filter(_deserialize_doc(doc), query)]
+            return [_deserialize_doc(doc) for doc in docs]
+        except Exception as exc:
+            log_event("error", "supabase_find_error", table=self.table_name, error=str(exc))
+            return []
+
+    def find_one(self, query=None):
+        """Find a single document in Supabase table."""
+        results = self.find(query)
+        return results[0] if results else None
+
+    def update_one(self, query, update):
+        """Update a document in Supabase table."""
+        global _supabase_client
+        if _supabase_client is None:
+            raise RuntimeError("Supabase client not initialized")
+
+        existing = self.find_one(query)
+        if not existing:
+            return None
+
+        updates = {
+            key: _serialize_value(value) for key, value in update.get("$set", {}).items()
+        }
+        if not updates:
+            return None
+
+        doc_id = existing.get("id") or existing.get("_id")
+        _supabase_client.table(self.table_name).update(updates).eq("id", doc_id).execute()
+        return None
+
+
 def get_collection(name: str):
     backend = _select_backend()
     if backend == "mongodb":
         return _mongo_db[name]
+    elif backend == "supabase":
+        return SupabaseCollection(name)
     return SQLiteCollection(name)
 
 
@@ -370,7 +509,7 @@ class Transaction:
             "description": str(description),
             "category": str(category),
             "notes": notes,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(),
         }
         result = Transaction._collection().insert_one(doc)
         return result.inserted_id
@@ -458,7 +597,7 @@ class Goal:
                 if isinstance(target_date, datetime)
                 else datetime.fromisoformat(str(target_date))
             ),
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(),
         }
         result = Goal._collection().insert_one(doc)
         return result.inserted_id
@@ -503,7 +642,7 @@ class ChatHistory:
         doc = {
             "user_message": str(user_message),
             "ai_response": str(ai_response),
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(),
         }
         result = ChatHistory._collection().insert_one(doc)
         return result.inserted_id

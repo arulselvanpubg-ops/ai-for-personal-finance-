@@ -2,6 +2,7 @@ import google.generativeai as genai
 from core.finance import get_monthly_summary
 from datetime import datetime
 from utils.helpers import get_env
+from utils.monitoring import log_event, log_exception
 
 GOOGLE_API_KEY = get_env('GOOGLE_API_KEY')
 GEMINI_MODEL = get_env('GEMINI_MODEL', 'gemini-1.5-flash')
@@ -38,7 +39,8 @@ Write 2-3 paragraphs that:
             response = self.model.generate_content(prompt)
             return response.text
         except Exception as e:
-            return f"Unable to generate summary: {str(e)}"
+            log_exception("insights_monthly_summary_failed", e, year=year, month=month)
+            return "Unable to generate a monthly summary right now. Please try again shortly."
     
     def forecast_cash_flow(self, months_ahead: int = 3) -> str:
         """Generate cash flow forecast."""
@@ -71,7 +73,8 @@ Provide a forecast that includes:
             response = self.model.generate_content(prompt)
             return response.text
         except Exception as e:
-            return f"Unable to generate forecast: {str(e)}"
+            log_exception("insights_forecast_failed", e, months_ahead=months_ahead)
+            return "Unable to generate a forecast right now. Please try again shortly."
     
     def suggest_budget(self) -> str:
         """Suggest budget based on past spending."""
@@ -90,13 +93,14 @@ Provide specific budget recommendations for each major category, with reasoning.
             response = self.model.generate_content(prompt)
             return response.text
         except Exception as e:
-            return f"Unable to generate budget suggestion: {str(e)}"
+            log_exception("insights_budget_failed", e)
+            return "Unable to generate budget suggestions right now. Please try again shortly."
 
 # Global instance
 try:
     insights = FinancialInsights()
 except ValueError as e:
-    print(f"Warning: {e}")
+    log_event("warning", "insights_unavailable", reason=str(e))
     insights = None
 
 def get_monthly_insight(year: int, month: int) -> str:
