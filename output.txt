@@ -1,0 +1,850 @@
+FinSight AI
+Personal AI Finance Assistant
+Product Requirements Document (PRD) · v1.0
+Date: April 17, 2026 · Status: Draft
+
+Project Name
+
+FinSight AI
+
+Document Type
+
+Product Requirements Document
+
+Version
+
+1.0
+
+Status
+
+Draft – Open for Review
+
+Language
+
+Python (Full Stack)
+
+AI APIs
+
+NVIDIA NIM Free API | Hugging Face | Google AI Studio
+
+UI Framework
+
+Streamlit / CustomTkinter + Plotly
+
+Target Users
+
+Individuals seeking AI-driven personal finance management
+
+Prepared By
+
+Engineering Team
+
+Last Updated
+
+2026-04-17
+
+■ Table of Contents
+1.
+
+Executive Summary
+
+2.
+
+Project Overview & Goals
+
+3.
+
+Technology Stack
+
+4.
+
+AI Architecture & API Integration
+
+5.
+
+Core Features & Modules
+
+6.
+
+LLM Chatbot – FinSight Chat
+
+7.
+
+UI/UX Design System
+
+8.
+
+Data Flow & System Architecture
+
+9.
+
+Security & Privacy
+
+10.
+
+Non-Functional Requirements
+
+11.
+
+Development Phases & Milestones
+
+12.
+
+File & Folder Structure
+
+13.
+
+API Keys & Environment Config
+
+14.
+
+Testing Strategy
+
+15.
+
+Risks & Mitigations
+
+16.
+
+Glossary
+
+■ 1. Executive Summary
+FinSight AI is a Python-based, desktop/web personal finance assistant that leverages three best-in-class free
+AI APIs — NVIDIA NIM, Hugging Face, and Google AI Studio — to deliver intelligent budgeting, expense
+analysis, investment insights, and a conversational LLM chatbot. Built for vibe-coding in VS Code, FinSight
+targets tech-savvy individuals who want an offline-capable, privacy-first financial co-pilot.
+Traditional budgeting apps deliver passive reports. FinSight AI acts as an active financial coach — categorizing
+expenses automatically, forecasting cash flow, detecting anomalous spending, and answering plain-language
+financial questions in real time. The system is entirely open-source-stack, zero subscription cost (API free tiers),
+and designed for local-first data storage so users retain full control.
+
+■ 2. Project Overview & Goals
+2.1 Problem Statement
+Over 37% of Americans already use AI to help manage finances (Ipsos/BMO, 2025), yet most tools are
+cloud-locked, subscription-based, or generic. FinSight AI fills the gap: a powerful, locally-run assistant with real
+intelligence, not just dashboards.
+
+2.2 Goals
+• Provide an AI-powered personal finance dashboard with smart insights.
+• Deliver an LLM chatbot (FinSight Chat) for conversational money management.
+• Automate expense categorization using HuggingFace NLP models.
+• Generate predictive cash-flow forecasts with Google AI Studio Gemini.
+• Keep 100% of financial data local — no cloud sync required.
+• Achieve a clean, modern UI with a teal/amber palette (non-generic design).
+• Ensure the full stack is Python — easy to vibe-code and extend in VS Code.
+
+2.3 Success Metrics
+Metric
+
+Target
+
+Chatbot response latency
+
+< 3 seconds (NVIDIA NIM)
+
+Expense auto-categorization accuracy
+
+> 88%
+
+Dashboard load time
+
+< 1.5 seconds
+
+API error rate
+
+< 1%
+
+Test coverage
+
+> 75%
+
+Supported file imports
+
+CSV, JSON, OFX, PDF bank statements
+
+■■ 3. Technology Stack
+Layer
+
+Technology
+
+Purpose
+
+UI Framework
+
+Streamlit 1.35+ / CustomTkinter
+
+Primary dashboard & desktop window
+
+Data Viz
+
+Plotly + Matplotlib
+
+Charts, graphs, forecasts
+
+LLM Chatbot
+
+NVIDIA NIM API (llama-3.1-70b)
+
+Conversational finance assistant
+
+NLP / Embedding
+
+Hugging Face (transformers, sentence-transformers)
+Categorization, semantic search
+
+Generative AI
+
+Google AI Studio – Gemini 1.5 Flash
+
+Insights, forecasts, summaries
+
+Data Storage
+
+SQLite + Pandas
+
+Local transaction database
+
+File Parsing
+
+pdfplumber, openpyxl, csv
+
+Import bank statements
+
+Charts – Export
+
+ReportLab
+
+Export reports as PDF
+
+Env Management
+
+python-dotenv
+
+.env config for API keys
+
+HTTP Client
+
+httpx / requests
+
+API calls
+
+Task Queue
+
+concurrent.futures (threading)
+
+Non-blocking AI calls
+
+Testing
+
+pytest + pytest-mock
+
+Unit & integration tests
+
+Linting/Format
+
+ruff + black
+
+Code quality
+
+IDE
+
+VS Code + Python extension
+
+Primary dev environment
+
+■ 4. AI Architecture & API Integration
+4.1 NVIDIA NIM Free API (Primary LLM)
+Endpoint: https://integrate.api.nvidia.com/v1
+Model: meta/llama-3.1-70b-instruct (or nvidia/nemotron variants)
+Free Tier: Available at build.nvidia.com — no credit card required for dev
+Role: Powers FinSight Chat — the conversational financial assistant chatbot. Handles follow-up questions,
+spending advice, and budgeting suggestions in natural language.
+Sample usage pattern (Python):
+from openai import OpenAI
+client = OpenAI(base_url='https://integrate.api.nvidia.com/v1', api_key=NVIDIA_API_KEY)
+resp = client.chat.completions.create(
+model='meta/llama-3.1-70b-instruct',
+messages=[{'role':'user','content': user_prompt}],
+stream=True
+)
+
+4.2 Hugging Face API
+
+Role: Expense auto-categorization NLP, semantic similarity, embeddings.
+Models:
+
+facebook/bart-large-mnli
+
+(zero-shot
+
+classification)
+
+|
+
+sentence-transformers/all-MiniLM-L6-v2
+
+(embeddings for RAG)
+Free Tier: Inference API – 30,000 requests/month free.
+• Zero-shot classify each transaction description into budget categories (Food, Rent, Transport, etc.).
+• Generate sentence embeddings for semantic search over past transactions.
+• Optional: Fine-tune a small model locally on the user's own spending history.
+
+4.3 Google AI Studio API (Gemini)
+Role: Financial insight generation, monthly summaries, cash-flow forecasting.
+Model: gemini-1.5-flash (free tier: 1,500 req/day, 1M tokens/min)
+Free Tier: aistudio.google.com — no billing required.
+• Generate plain-English monthly financial health summaries.
+• Produce 3-month cash-flow forecasts based on spending trends.
+• Detect recurring subscriptions and flag unusually high spend categories.
+• Answer complex financial queries that require multi-step reasoning.
+
+4.4 AI Routing Logic
+The system uses a lightweight router to direct requests to the most suitable API. Conversational dialogue →
+NVIDIA NIM. Categorization/embeddings → Hugging Face. Analysis/forecasting → Google Gemini. This
+maximises free-tier usage and keeps latency low by matching task type to model strength.
+
+■ 5. Core Features & Modules
+
+5.1 ■ Dashboard
+• At-a-glance financial health score (0–100) computed from spending vs income ratio.
+• Monthly income vs expenses bar chart (Plotly).
+• Category donut chart showing spending breakdown.
+• Net worth tracker with historical line chart.
+• Upcoming bill reminders and budget alerts.
+• Top 5 anomalous transactions flagged by AI.
+
+5.2 ■ Expense Tracker
+• Manual transaction entry form.
+• CSV / PDF bank statement import (auto-parsed).
+• AI auto-categorization via Hugging Face (Food, Transport, Health, etc.).
+• Search, filter, sort transactions table.
+• Bulk-edit categories and add notes.
+• Monthly comparison view: this month vs last month.
+
+5.3 ■ Budget Planner
+• Set monthly category budgets.
+• Real-time progress bars: spent vs budget.
+• AI-suggested budget based on past 3 months (Gemini).
+• Rollover budget support.
+• Alert when a category exceeds 80% of budget.
+
+5.4 ■ Investment Tracker
+• Manual portfolio entry (stock ticker, quantity, purchase price).
+• Current price fetch via free yfinance library.
+• P&L; calculation and portfolio allocation pie chart.
+• AI risk commentary (Gemini).
+• SIP (Systematic Investment Plan) tracker.
+
+5.5 ■ Goals Module
+• Create savings goals (e.g., Emergency Fund, Vacation, Laptop).
+• Target date + target amount input.
+• Progress visualisation (animated progress bar).
+• AI-suggested monthly saving amount to hit goal on time.
+
+5.6 ■ Reports & Export
+• Generate monthly PDF financial report (ReportLab).
+• Export transactions to CSV / Excel.
+• Shareable spending insights image (Plotly export).
+
+■ 6. LLM Chatbot — FinSight Chat
+
+FinSight Chat is a persistent, context-aware financial chatbot powered by NVIDIA NIM (Llama 3.1 70B). It
+maintains a rolling conversation window, has access to a summarized view of the user's financial data, and
+responds with actionable, personalised advice.
+
+6.1 System Prompt Design
+A carefully engineered system prompt is injected at every session start. It includes: the user's current month
+spending summary, top 3 budget overruns, savings goal progress, and a persona definition (friendly financial
+advisor, no jargon). This grounds the LLM with real user data without sending raw transaction rows.
+
+6.2 Capabilities
+Capability
+
+Example Query
+
+Spending Q&A
+
+"How much did I spend on food last month?"
+
+Budget advice
+
+"I want to save ■10,000 more per month — where can I cut?"
+
+Goal planning
+
+"Can I afford a laptop in 3 months?"
+
+Anomaly explainer
+
+"Why is my utility bill flagged?"
+
+General finance
+
+"Explain SIP vs lump sum investing."
+
+Motivation
+
+"Give me a weekly saving challenge."
+
+6.3 Streaming UI
+Responses stream token-by-token into the chat window using NVIDIA NIM's streaming mode (stream=True). A
+typing indicator animation plays while the first token is awaited. The chat history is stored in SQLite
+(session-based) and the last 10 turns are included in each API call for context continuity.
+
+■ 7. UI / UX Design System
+
+7.1 Design Principles
+• Non-generic palette: Teal + Amber — deliberately avoiding the over-used purple/violet AI aesthetic.
+• Data-first layout: Charts and numbers are the hero, not decorative elements.
+• Low cognitive load: One primary action per screen, clear hierarchy.
+• Dark mode support: Toggle between light teal and dark slate themes.
+• Accessible typography: High-contrast text, minimum 14px body size.
+
+7.2 Colour Palette
+Role
+
+Hex
+
+Usage
+
+Primary
+
+#0F4C5C
+
+Headers, sidebar, primary buttons
+
+Accent
+
+#0A9396
+
+Active states, highlights, links
+
+Mint
+
+#94D2BD
+
+Secondary accents, card borders
+
+Amber
+
+#EE9B00
+
+Warnings, alerts, CTAs
+
+Danger
+
+#AE2012
+
+Budget overruns, overspend alerts
+
+Success
+
+#2D6A4F
+
+Positive delta, goal achieved
+
+Background
+
+#F4F9F9
+
+Light mode canvas
+
+Dark BG
+
+#0D1B2A
+
+Dark mode canvas
+
+Text Dark
+
+#1A1A2E
+
+Primary body text
+
+7.3 Navigation Structure
+• Sidebar (left, collapsible): Dashboard · Expenses · Budget · Investments · Goals · Chat · Reports · Settings
+• Top bar: App logo, current month label, notification bell, dark/light toggle, user avatar.
+• Main canvas: Content area with consistent 24px padding and card-based layout.
+• Card components: Rounded corners (12px), subtle teal border, elevation shadow.
+
+7.4 Key Screen Wireframe Descriptions
+Dashboard: 3-column grid: Financial Health Score (top-left), Net Cash Flow (top-center), Savings Rate (top-right).
+Below: full-width income vs expense bar chart. Below: 2-col layout — Category donut (left), Recent Transactions
+list (right).
+Expenses: Full-width transaction table with inline edit. Top filter bar: date range, category, amount range. Side
+panel: AI category suggestion overlay.
+Chat: Chat bubble interface — user messages right-aligned (amber bubble), AI messages left (teal card). Financial
+snapshot sidebar shows live balances as context.
+Budget: Card-per-category layout. Each card: category icon, budget bar, amount spent / budget amount, AI
+recommendation chip.
+Reports: PDF preview pane + download button. Filters for date range and report type.
+
+■■ 8. Data Flow & System Architecture
+8.1 Data Sources
+
+• Manual entry via UI forms.
+• CSV import (bank/credit card statements).
+• PDF import (parsed with pdfplumber).
+• Investment prices — yfinance (local fetch, no API key needed).
+
+8.2 Data Pipeline
+Step
+
+Process
+
+Technology
+
+1
+
+User imports CSV / PDF transaction file
+
+pdfplumber / csv module
+
+2
+
+Parser normalizes rows: date, amount, description
+
+Pandas
+
+3
+
+AI categorizer assigns category to each row
+
+HuggingFace BART
+
+4
+
+Rows written to SQLite database
+
+sqlite3 / SQLAlchemy
+
+5
+
+Dashboard queries DB and renders charts
+
+Plotly / Streamlit
+
+6
+
+Gemini generates monthly insight text
+
+Google AI Studio API
+
+7
+
+User query routed to FinSight Chat (NVIDIA NIM)
+
+OpenAI-compat SDK
+
+■ 9. Security & Privacy
+• Local-first data: All transactions stored in SQLite on the user's machine. No cloud sync.
+• API keys in .env: Never hardcoded. python-dotenv loads from .env file. .env added to .gitignore.
+• Encryption at rest: Optional SQLite encryption via SQLCipher (sqlcipher3 library).
+• No PII to LLMs: Only anonymized summaries (totals, category names) are sent to AI APIs — never raw
+transaction descriptions with merchant names.
+• HTTPS only: All API calls use TLS. Certificate verification enforced.
+• Input validation: All user inputs sanitized before DB writes (parameterized queries, no raw SQL).
+• Session timeout: App auto-locks after 15 minutes of inactivity (configurable).
+
+■■ 10. Non-Functional Requirements
+NFR
+
+Requirement
+
+Measure
+
+Performance
+
+Dashboard renders in < 1.5s
+
+Lighthouse / manual timing
+
+Reliability
+
+App uptime 99.5% (local, no crashes)
+
+Error log review
+
+Scalability
+
+Handle 100,000+ transactions in SQLite
+
+Query benchmark
+
+Usability
+
+New user onboarded in < 5 min
+
+User test sessions
+
+Accessibility
+
+WCAG 2.1 AA contrast compliance
+
+axe / browser inspector
+
+Portability
+
+Runs on Windows 10+, macOS 12+, Ubuntu 22+
+
+CI matrix
+
+Maintainability
+
+Code coverage > 75%, ruff lint zero errors
+
+CI/CD report
+
+Offline mode
+
+Core features work without internet
+
+■ 11. Development Phases & Milestones
+
+Network-off test
+
+■ Week 1–2
+
+Phase 1 — Foundation
+• Project scaffold: folder structure, virtual environment, .env setup.
+• SQLite schema: transactions, categories, budgets, goals, chat_history.
+• Basic Streamlit app skeleton with sidebar navigation.
+• CSV import and Pandas data cleaning pipeline.
+
+■ Week 3–4
+
+Phase 2 — Core Modules
+• Expense tracker UI with table, filters, and manual entry.
+• HuggingFace integration: auto-categorization pipeline.
+• Dashboard charts: income/expense bar, category donut (Plotly).
+• Budget planner with progress bars.
+
+■ Week 5–6
+
+Phase 3 — AI Features
+• FinSight Chat: NVIDIA NIM integration, streaming response UI.
+• Google Gemini: monthly summary and cash-flow forecast.
+• Financial Health Score algorithm.
+• Anomaly detection (Z-score based flagging).
+
+■ Week 7–8
+
+Phase 4 — Advanced
+• Investment tracker + yfinance integration.
+• Goals module with AI-suggested saving amounts.
+• PDF report generation (ReportLab).
+• Dark mode toggle and UI polish.
+
+■ Week 9–10
+
+Phase 5 — QA & Launch
+• pytest suite: unit tests for all modules.
+• End-to-end user flow testing.
+• Performance benchmarking.
+• README, setup guide, and demo video.
+
+■ 12. File & Folder Structure
+finsight-ai/
+■■■ app.py
+
+# Streamlit entry point
+
+■■■ .env
+
+# API keys (gitignored)
+
+■■■ requirements.txt
+■■■ README.md
+■■■ data/
+■ ■■■ finsight.db
+
+# SQLite database
+
+■■■ core/
+■ ■■■ db.py
+
+# DB connection & schema
+
+■ ■■■ models.py
+
+# SQLAlchemy models
+
+■ ■■■ parser.py
+
+# CSV/PDF import
+
+■ ■■■ finance.py
+
+# Business logic, score calc
+
+■■■ ai/
+■ ■■■ categorizer.py
+
+# HuggingFace pipeline
+
+■ ■■■ chat.py
+
+# NVIDIA NIM chatbot
+
+■ ■■■ insights.py
+
+# Google Gemini insights
+
+■ ■■■ router.py
+
+# AI task router
+
+■■■ ui/
+■ ■■■ dashboard.py
+■ ■■■ expenses.py
+■ ■■■ budget.py
+■ ■■■ investments.py
+■ ■■■ goals.py
+■ ■■■ chat_ui.py
+■ ■■■ reports.py
+■ ■■■ theme.py
+
+# Color constants, CSS
+
+■■■ utils/
+■ ■■■ validators.py
+■ ■■■ helpers.py
+■■■ tests/
+■■■ test_parser.py
+■■■ test_categorizer.py
+■■■ test_finance.py
+
+■ 13. API Keys & Environment Config
+Create a .env file in the project root (never commit to git):
+# NVIDIA NIM
+NVIDIA_API_KEY=nvapi-xxxxxxxxxxxxxxxxxxxx
+NVIDIA_BASE_URL=https://integrate.api.nvidia.com/v1
+NVIDIA_MODEL=meta/llama-3.1-70b-instruct
+# Hugging Face
+HF_API_KEY=hf_xxxxxxxxxxxxxxxxxxxx
+HF_CATEGORIZER_MODEL=facebook/bart-large-mnli
+HF_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+# Google AI Studio
+GOOGLE_API_KEY=AIzaxxxxxxxxxxxxxxxxxxxxxxx
+GEMINI_MODEL=gemini-1.5-flash
+# App Config
+APP_SECRET_KEY=your-random-secret
+DB_PATH=data/finsight.db
+SESSION_TIMEOUT_MINUTES=15
+
+Load in Python:
+from dotenv import load_dotenv
+import os
+load_dotenv()
+NVIDIA_API_KEY = os.getenv('NVIDIA_API_KEY')
+
+■ 14. Testing Strategy
+
+Test Type
+
+Scope
+
+Tool
+
+Unit Tests
+
+Core logic: parser, categorizer, score calc
+
+pytest
+
+Mock API Tests
+
+AI API calls mocked — offline test runs
+
+pytest-mock
+
+Integration Tests
+
+DB writes + reads end-to-end
+
+pytest + SQLite in-memory
+
+UI Smoke Tests
+
+Streamlit page renders without error
+
+streamlit testing API
+
+Load Test
+
+Import 50K transactions, measure render time
+
+manual + time module
+
+■■ 15. Risks & Mitigations
+Risk
+
+Likelihood
+
+Impact
+
+Mitigation
+
+Free API rate limit exceeded
+
+Medium
+
+High
+
+Cache AI responses; use Gemini as fallback for categorization
+
+HuggingFace model accuracy < 80%
+Medium
+
+Medium
+
+Allow user to re-categorize; fine-tune on personal data
+
+SQLite performance at scale
+
+Low
+
+Medium
+
+Index on date + category; offer DuckDB migration path
+
+NVIDIA NIM API downtime
+
+Low
+
+High
+
+Fallback to Gemini for chat; queue retries with exponential backoff
+
+PDF parsing failures
+
+Medium
+
+Low
+
+Multiple parser strategies (pdfplumber → pypdf → OCR fallback)
+
+User API key leakage
+
+Low
+
+Critical
+
+.env gitignore enforced; app checks for key presence at startup
+
+■ 16. Glossary
+NIM: NVIDIA Inference Microservice — hosted LLM endpoints from NVIDIA.
+HuggingFace Inference API: Free hosted API to run ML models in the cloud.
+Gemini: Google's multimodal LLM family; Flash variant is free-tier.
+RAG: Retrieval-Augmented Generation — grounding LLM answers with local data.
+Zero-shot classification: Categorizing text without fine-tuning, using NLI models.
+SQLite: Serverless, file-based relational database. No installation needed.
+Streamlit: Python framework for building interactive data apps rapidly.
+pdfplumber: Python library for extracting text/tables from PDF files.
+yfinance: Unofficial Yahoo Finance Python API for stock price data.
+SIP: Systematic Investment Plan — periodic fixed investment in funds/stocks.
+WCAG 2.1 AA: Web Content Accessibility Guidelines — contrast and usability standard.
+
+FinSight AI PRD v1.0 · Generated April 17, 2026 · Confidential – Internal Use Only
+
+
