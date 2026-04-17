@@ -1,9 +1,12 @@
 import streamlit as st
-from dotenv import load_dotenv
 import os
 
-# Load environment variables
-load_dotenv()
+# Load environment variables - handle both local and Streamlit Cloud
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # dotenv not available on Streamlit Cloud
 
 # Import modules
 from ui.dashboard import show_dashboard
