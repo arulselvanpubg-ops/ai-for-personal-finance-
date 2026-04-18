@@ -31,11 +31,11 @@ class FinSightChat:
         prompt = f"""You are FinSight AI, a friendly and knowledgeable personal finance assistant.
 
 User's current financial snapshot:
-- Monthly Income: ${summary['income']:.2f}
-- Monthly Expenses: ${summary['expenses']:.2f}
-- Net Cash Flow: ${summary['net']:.2f}
+- Monthly Income: ₹{summary['income']:.2f}
+- Monthly Expenses: ₹{summary['expenses']:.2f}
+- Net Cash Flow: ₹{summary['net']:.2f}
 
-Top spending categories: {', '.join([f"{cat}: ${amt:.2f}" for cat, amt in list(summary['categories'].items())[:3]])}
+Top spending categories: {', '.join([f"{cat}: ₹{amt:.2f}" for cat, amt in list(summary['categories'].items())[:3]])}
 
 Guidelines:
 - Be helpful, encouraging, and professional

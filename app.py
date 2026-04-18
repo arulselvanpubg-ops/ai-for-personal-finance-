@@ -47,17 +47,56 @@ st.set_page_config(
 st.markdown(
     """
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+    
     .main-header {
-        color: #0F4C5C;
-        font-size: 2.5rem;
-        font-weight: bold;
+        background: linear-gradient(90deg, #0F4C5C 0%, #06262F 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 3rem;
+        font-weight: 800;
+        margin-bottom: 1rem;
     }
-    .sidebar .sidebar-content {
-        background-color: #F4F9F9;
+    
+    div[data-testid="stMetric"] {
+        background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.6));
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        padding: 1.5rem;
+        border-radius: 1.2rem;
+        box-shadow: 0 10px 30px -10px rgba(15, 76, 92, 0.1);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
     }
+    
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 35px -10px rgba(15, 76, 92, 0.2);
+    }
+    
     .stButton>button {
-        background-color: #0F4C5C;
+        background: linear-gradient(90deg, #0F4C5C 0%, #156B82 100%);
         color: white;
+        border: none;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(15, 76, 92, 0.2);
+    }
+    
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(15, 76, 92, 0.4);
+        color: white;
+        border: none;
+    }
+    
+    div[data-testid="stSidebar"] {
+        background-color: #F8FAFC;
+        border-right: 1px solid #E2E8F0;
     }
 </style>
 """,
@@ -96,7 +135,23 @@ if not st.session_state.logged_in:
     if st.session_state.session_notice:
         st.info(st.session_state.session_notice)
         st.session_state.session_notice = None
-    show_login_page()
+    
+    # Show login page but also allow demo access
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        show_login_page()
+    with col2:
+        st.markdown("---")
+        st.subheader("Quick Demo Access")
+        st.info("Try the app without registration!")
+        if st.button("Start Demo", type="primary", key="demo_access"):
+            # Auto-login with demo user
+            st.session_state.logged_in = True
+            st.session_state.user_id = "demo_user"
+            st.session_state.user_email = "demo@finsight.ai"
+            st.session_state.user_name = "Demo User"
+            st.session_state.last_activity = datetime.utcnow()
+            st.rerun()
 else:
     col1, col2 = st.sidebar.columns([3, 1])
     with col1:
@@ -117,6 +172,39 @@ else:
         if db_status.get("fallback_reason"):
             st.code(db_status["fallback_reason"])
         st.write(f"Session timeout: {session_timeout_minutes} minutes")
+        
+        st.divider()
+        if st.button("🧪 Load Sample Data", help="Populate the app with sample transactions for a demo."):
+            from core.db import Transaction
+            count = Transaction.seed_dummy_data()
+            st.success(f"Loaded {count} sample transactions!")
+            st.rerun()
+
+        if st.button("🗑️ Reset All Data", help="Permanently delete all transactions, goals, and investments.", type="secondary"):
+            from core.db import get_collection
+            for col_name in ["transactions", "goals", "investments", "budgets", "chat_history"]:
+                # Logic to clear collection based on backend
+                col = get_collection(col_name)
+                # For simplicity, we can use a direct SQL if it's sqlite, or a generic way
+                # But since we have a custom collection wrapper, let's just use it
+                # Actually, our collection wrappers don't have 'delete_all'
+                pass
+            
+            # Simple way: just run the script logic here
+            import sqlite3
+            import os
+            db_path = os.getenv("SQLITE_DB_PATH", os.path.join("data", "finsight.db"))
+            if os.path.exists(db_path):
+                conn = sqlite3.connect(db_path)
+                conn.execute("DELETE FROM transactions")
+                conn.execute("DELETE FROM goals")
+                conn.execute("DELETE FROM investments")
+                conn.execute("DELETE FROM budgets")
+                conn.execute("DELETE FROM chat_history")
+                conn.commit()
+                conn.close()
+                st.success("All data cleared!")
+                st.rerun()
 
     st.sidebar.markdown("---")
 
@@ -142,4 +230,7 @@ else:
         show_reports()
 
     st.sidebar.markdown("---")
-    st.sidebar.markdown("© 2026 FinSight AI")
+    st.sidebar.markdown(
+        "© 2026 FinSight AI · Apache 2.0 "
+        "([LICENSE](https://www.apache.org/licenses/LICENSE-2.0))"
+    )

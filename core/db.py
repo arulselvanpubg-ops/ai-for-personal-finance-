@@ -415,6 +415,32 @@ class SQLiteCollection:
         conn.commit()
         return None
 
+    def delete_one(self, query):
+        conn = _ensure_sqlite()
+        existing = self.find_one(query)
+        if not existing:
+            return None
+            
+        conn.execute(
+            f"DELETE FROM {self.table_name} WHERE id = ?",
+            (int(existing["id"]),)
+        )
+        conn.commit()
+        return None
+
+    def delete_many(self, query=None):
+        conn = _ensure_sqlite()
+        if query is None:
+            # Delete all records
+            conn.execute(f"DELETE FROM {self.table_name}")
+        else:
+            # Delete records matching query (for simplicity, we'll find and delete one by one)
+            docs = self.find(query)
+            for doc in docs:
+                conn.execute(f"DELETE FROM {self.table_name} WHERE id = ?", (int(doc["id"]),))
+        conn.commit()
+        return None
+
 
 class SupabaseCollection:
     """Wrapper for Supabase table operations compatible with MongoDB-like interface."""
@@ -486,6 +512,37 @@ class SupabaseCollection:
         _supabase_client.table(self.table_name).update(updates).eq("id", doc_id).execute()
         return None
 
+    def delete_one(self, query):
+        """Delete a document in Supabase table."""
+        global _supabase_client
+        if _supabase_client is None:
+            raise RuntimeError("Supabase client not initialized")
+
+        existing = self.find_one(query)
+        if not existing:
+            return None
+
+        doc_id = existing.get("id") or existing.get("_id")
+        _supabase_client.table(self.table_name).delete().eq("id", doc_id).execute()
+        return None
+
+    def delete_many(self, query=None):
+        """Delete documents in Supabase table."""
+        global _supabase_client
+        if _supabase_client is None:
+            raise RuntimeError("Supabase client not initialized")
+
+        if query is None:
+            # Delete all records
+            _supabase_client.table(self.table_name).delete().execute()
+        else:
+            # Delete records matching query (for simplicity, we'll find and delete one by one)
+            docs = self.find(query)
+            for doc in docs:
+                doc_id = doc.get("id") or doc.get("_id")
+                _supabase_client.table(self.table_name).delete().eq("id", doc_id).execute()
+        return None
+
 
 def get_collection(name: str):
     backend = _select_backend()
@@ -525,6 +582,56 @@ class Transaction:
     def find_all():
         results = Transaction._collection().find()
         return sorted(results, key=lambda item: item["date"], reverse=True)
+
+    @staticmethod
+    def seed_dummy_data():
+        """Seed the database with sample transactions, goals, and investments."""
+        # Avoid circular import
+        from ui.dummy_data import _raw_txns, _d, DUMMY_GOALS, DUMMY_INVESTMENTS
+        
+        # Clear existing data
+        Transaction._collection().delete_many({})
+        from core.db import Goal, Investment
+        Goal._collection().delete_many({})
+        Investment._collection().delete_many({})
+        
+        # Seed Transactions
+        for i, (amt, desc, cat) in enumerate(_raw_txns):
+            Transaction.create(
+                date=datetime.combine(_d(i * 2), datetime.min.time()),
+                amount=amt,
+                description=desc,
+                category=cat,
+                notes="Sample transaction"
+            )
+            
+        # Seed Goals
+        for g in DUMMY_GOALS:
+            Goal.create(
+                name=g["name"],
+                target_amount=g["target_amount"],
+                current_amount=g["current_amount"],
+                target_date=g["target_date"]
+            )
+            
+        # Seed Investments
+        for inv in DUMMY_INVESTMENTS:
+            Investment.create(
+                ticker=inv["ticker"],
+                quantity=inv["quantity"],
+                purchase_price=inv["purchase_price"],
+                purchase_date=inv["purchase_date"]
+            )
+            
+        return len(_raw_txns)
+
+    @staticmethod
+    def update(transaction_id, update_data):
+        Transaction._collection().update_one({"_id": str(transaction_id)}, {"$set": update_data})
+
+    @staticmethod
+    def delete(transaction_id):
+        Transaction._collection().delete_one({"_id": str(transaction_id)})
 
 
 class Category:
@@ -604,7 +711,16 @@ class Goal:
 
     @staticmethod
     def find_all():
-        return Goal._collection().find()
+        results = Goal._collection().find()
+        return sorted(results, key=lambda item: item.get("created_at", datetime.min), reverse=True)
+
+    @staticmethod
+    def update(goal_id, update_data):
+        Goal._collection().update_one({"_id": str(goal_id)}, {"$set": update_data})
+
+    @staticmethod
+    def delete(goal_id):
+        Goal._collection().delete_one({"_id": str(goal_id)})
 
 
 class Investment:
@@ -630,6 +746,14 @@ class Investment:
     @staticmethod
     def find_all():
         return Investment._collection().find()
+
+    @staticmethod
+    def update(investment_id, update_data):
+        Investment._collection().update_one({"_id": str(investment_id)}, {"$set": update_data})
+
+    @staticmethod
+    def delete(investment_id):
+        Investment._collection().delete_one({"_id": str(investment_id)})
 
 
 class ChatHistory:

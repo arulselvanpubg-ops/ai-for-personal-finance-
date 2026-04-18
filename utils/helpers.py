@@ -21,7 +21,7 @@ def get_env(key, default=None):
 
 def format_currency(amount):
     """Format amount as currency."""
-    return f"${amount:,.2f}"
+    return f"₹{amount:,.2f}"
 
 def calculate_percentage(part, total):
     """Calculate percentage safely."""

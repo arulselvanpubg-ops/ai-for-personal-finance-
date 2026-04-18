@@ -101,3 +101,10 @@ def show_login_page():
             "<p style='text-align: center; color: gray;'>Your personal AI finance assistant</p>",
             unsafe_allow_html=True,
         )
+        st.markdown(
+            "<p style='text-align: center; color: gray; font-size: 0.85rem;'>"
+            "© 2026 FinSight AI · Apache 2.0 "
+            "(<a href='https://www.apache.org/licenses/LICENSE-2.0' style='color: gray;'>LICENSE</a>)"
+            "</p>",
+            unsafe_allow_html=True,
+        )

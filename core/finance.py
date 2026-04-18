@@ -4,13 +4,23 @@ from typing import Dict, List
 import pandas as pd
 import numpy as np
 
-def calculate_financial_health_score(db=None) -> float:
-    """Calculate financial health score (0-100)."""
-    # Get current month transactions
+def calculate_financial_health_score(year: int = None, month: int = None, db=None) -> float:
+    """Calculate financial health score (0-100) for a given month."""
     now = datetime.now()
-    start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    year = year or now.year
+    month = month or now.month
     
-    transactions = Transaction.find_by_date_range(start_of_month, now)
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1)
+    else:
+        end_date = datetime(year, month + 1, 1)
+        
+    # If the requested month is the current month, only calculate up to today
+    if year == now.year and month == now.month:
+        end_date = now
+    
+    transactions = Transaction.find_by_date_range(start_date, end_date)
     
     if not transactions:
         return 50.0  # Neutral score if no data

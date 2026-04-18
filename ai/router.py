@@ -1,6 +1,7 @@
 from .categorizer import categorize_transaction
 from .chat import send_chat_message
 from .insights import get_monthly_insight, get_cash_flow_forecast, get_budget_suggestion
+from .invest_advisor import get_ai_investment_advice
 
 class AIRouter:
     def __init__(self):
@@ -9,7 +10,8 @@ class AIRouter:
             'chat': self._route_chat,
             'insights': self._route_insights,
             'forecast': self._route_forecast,
-            'budget_suggest': self._route_budget
+            'budget_suggest': self._route_budget,
+            'invest_advice': self._route_invest_advice
         }
     
     def route(self, task: str, **kwargs):
@@ -38,6 +40,10 @@ class AIRouter:
     def _route_budget(self, **kwargs):
         """Route to Gemini budget suggestion."""
         return get_budget_suggestion()
+        
+    def _route_invest_advice(self, portfolio_data: list, stream: bool = False, **kwargs):
+        """Route to Investment Advisor."""
+        return get_ai_investment_advice(portfolio_data, stream=stream)
 
 # Global router
 router = AIRouter()
